@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Claims Queue Manager</title></head><body>
+<h2>Claims Queue Manager</h2>
+<label>User <select id="user"><option>ereyes</option><option>jchen</option><option>mkowalski</option><option>apatel</option><option>dnguyen</option><option>lbecker</option><option>tosei</option><option>sfranklin</option></select></label>
+<label>Queue <select id="queue" onchange="loadTasks()"><option value="DUP">Duplicate Check</option><option value="AUTH">Authorization Matching</option><option value="CASE">Case Rate</option><option value="BENE">Benefit Included</option><option value="PEND">Pend</option><option value="OTHER">Other</option></select></label>
+<button onclick="nextClaim()">Get Next Claim</button><button onclick="loadList()">Supervisor List</button>
+<div id="message"></div>
+<pre id="detail"></pre>
+<div>
+    <button onclick="review()">Review</button><button onclick="release()">Release</button><button onclick="forward()">Forward</button>
+    <button onclick="completeTask()">Complete Review</button>
+    <!--<button onclick="complete('Approve')">Approve</button><button onclick="complete('PartialDenial')">Partial Denial</button><button onclick="complete('Deny')">Deny</button><button onclick="complete('Pend')">Pend</button>-->
+</div>
+<table border="1"><thead><tr><th>Claim</th><th>Queue</th><th>Priority</th><th>Due</th><th>Assigned To</th><th>Assigned By</th><th>Locked By</th><th>Locked On</th></tr></thead><tbody id="rows"></tbody></table>
+<script>
+let current=null; const $=id=>document.getElementById(id); const headers=()=>({'X-User-Id':$('user').value,'Content-Type':'application/json'});
+async function api(url,opt={}){opt.headers={...headers(),...(opt.headers||{})};const r=await fetch(url,opt);if(!r.ok){const t=await r.text();throw new Error(t||r.statusText)}return r.status===204?null:r.json()}
+async function nextClaim() { try { msg("");
+current = await api('/api/claims/next/' + $('queue').value); $('detail').textContent = JSON.stringify(current, null, 2); msg("Get Next is read-only; it does not lock the task.");
+}catch(e){alert(e.message)}}
+async function review() { if (!current) return; try { msg(""); current = await api('/api/claims/' + current.taskId + '/review', { method: 'POST' }); $('detail').textContent = JSON.stringify(current, null, 2); loadTasks(); }catch(e){alert(e.message)}}
+async function release() { if (!current) return; try { msg(""); await api('/api/claims/' + current.taskId + '/release', { method: 'POST' }); alert('Released'); loadTasks(); }catch(e){alert(e.message)}}
+async function forward() { if (!current) return; msg(""); const u = prompt('Forward to username:', 'jchen'); if (!u) return; try { await api('/api/claims/' + current.taskId + '/forward', { method: 'POST', body: JSON.stringify({ username: u }) }); alert('Forwarded'); loadTasks(); }catch(e){alert(e.message)}}
+async function completeTask() {
+    if (!current) return msg("No current task.", true); msg(""); const outcome = prompt("Outcome: Approve, PartialDenial, Deny, Pend", "Approve");
+    if (!outcome) return;
+const note = prompt('Optional note:', ''); try { await api('/api/claims/' + current.taskId + '/complete', { method: 'POST', body: JSON.stringify({ outcome, note }) }); alert('Completed'); current = null; $('detail').textContent = ''; loadTasks(); } catch (e) { alert(e.message) } }
+async function complete(outcome) { if (!current) return; msg(""); const note = prompt('Optional note:', ''); try { await api('/api/claims/' + current.taskId + '/complete', { method: 'POST', body: JSON.stringify({ outcome, note }) }); alert('Completed'); current = null; $('detail').textContent = ''; loadTasks(); }catch(e){alert(e.message)}}
+async function loadTasks() { try {/*current=null;$('detail').textContent='';*/msg(""); const x=await api('/api/claims/queue/'+$('queue').value+'?page=1&pageSize=50');$('rows').innerHTML=x.items.map(t=>`<tr><td>${t.claimNumber}</td><td>${t.queue}</td><td>${t.priority}</td><td>${t.dueDate}</td><td>${t.assignedTo||''}</td><td>${t.assignedBy||''}</td><td>${t.lockedBy||''}</td><td>${t.lockedOn||''}</td></tr>`).join('')}catch(e){alert(e.message)}}
+async function loadList() {
+    try { msg(""); loadTasks() } catch (e) { alert(e.message) }
+}
+function msg(s, error = false) { $("message").textContent = s; $("message").style.fontWeight = error ? "bold" : "normal"; }
+document.addEventListener('DOMContentLoaded', loadTasks);
+</script></body></html>
