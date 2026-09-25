@@ -3,7 +3,7 @@
 ASP.NET Core 8 + EF Core 8 + SQL Server implementation of the supplied assignment.
 
 ## Run
-1. Create an empty SQL Server database named `ClaimsQueueManager`.
+1. Create an empty SQL Server database named `ClaimsQueue`.
 2. Run `Database/raw_data.sql`.
 3. Run `Database/001_ef_schema.sql`.
 4. Update `appsettings.json` connection string.
